@@ -26,3 +26,7 @@ It allows users to compile or interpret LiteScript coded scripts that have the e
    ```
 2. **Compile the project**: Use your preferred C++ IDE to build the project or use a command line to compile the source code
 3. Run the Application: After compiling, you can run your LiteScript files using the provided command.
+
+## Syntax
+Currently, LiteScript only provides for 'let', '+', '-', 'show' as it was made for learning purposes. More syntax may be added
+in the future!
