@@ -1,0 +1,3 @@
+C:/Users/user/Documents/CLionProjects/LiteScript/cmake-build-debug/CMakeFiles/LiteScript.dir
+C:/Users/user/Documents/CLionProjects/LiteScript/cmake-build-debug/CMakeFiles/edit_cache.dir
+C:/Users/user/Documents/CLionProjects/LiteScript/cmake-build-debug/CMakeFiles/rebuild_cache.dir

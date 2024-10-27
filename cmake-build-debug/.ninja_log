@@ -1,0 +1,8 @@
+# ninja log v6
+6	428	7517523022769881	CMakeFiles/LiteScript.dir/src/Compiler.cpp.obj	1d982502ab1227c2
+8	596	7517518611002657	CMakeFiles/LiteScript.dir/src/main.cpp.obj	29b8c64dd96b864a
+22	780	7517518611142565	CMakeFiles/LiteScript.dir/src/Interpreter.cpp.obj	5a72d55fbaa6d519
+13	847	7517518611052648	CMakeFiles/LiteScript.dir/src/LiteScript.cpp.obj	17fb4f7fa8d7bade
+4	318	7517524155172514	build.ninja	fb3e8a6990190bd7
+428	616	7517523026997084	LiteScript.exe	70683532064dd2a0
+2	13	7517518582519478	clean	20b1347d9ae3b987
