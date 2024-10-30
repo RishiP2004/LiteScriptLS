@@ -1,7 +1,7 @@
 # LiteScript
 
 ## Overview
-LiteScript is a custom programming language designed for fun and learning purposes, serving as a great introduction to the basics of how languages are compiled and interpreted.
+LiteScript is a custom programming language designed for fun and learning purposes, serving as an introduction to the basics of how languages are compiled and interpreted.
 It allows users to compile or interpret LiteScript coded scripts that have the extension .ls using `litescript <compile|interpret> <file.ls>`
 
 ## Features
