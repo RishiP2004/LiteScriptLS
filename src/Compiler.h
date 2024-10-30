@@ -1,40 +1,86 @@
 #ifndef COMPILER_H
 #define COMPILER_H
 
+#include "AST.h"
 #include <vector>
 #include <string>
-#include "ASTNode.h"
-
-using namespace std;
+#include <memory>
+#include <fstream>
 
 /**
- * Compiler class responsible for generating assembly code from an Abstract Syntax Tree (AST).
- * It takes a collection of ASTNode objects and translates them into a corresponding assembly language representation.
+ * The Compiler class generates assembly code from an AST (Abstract Syntax Tree) and saves it to a file.
+ * It provides methods to generate different sections of assembly code and handles the compilation
+ * and execution of the generated code.
  */
 class Compiler {
 public:
     /**
-     * Constructor a Compiler instance with a given AST
+     * Initializes the compiler with a reference to a vector of AST nodes.
      *
-     * @param nodes A vector of ASTNode objects representing the parsed source code commands.
+     * @param nodes - AST nodes representing the program structure to be compiled
      */
-    explicit Compiler(const vector<ASTNode>& nodes);
+    explicit Compiler(const std::vector<std::unique_ptr<ASTNode>>& nodes);
 
     /**
-     * Compiles the AST into assembly code for the LiteScript language.
+     * Generates the complete assembly code from the AST and saves it to the specified file.
      *
-     * This function organizes the generated assembly code into three sections:
-     * - Data Section: Stores initialized data such as format strings.
-     * - BSS Section: Allocates memory for variables without initialization.
-     * - Text Section: Contains the executable code for the program, including variable operations and system calls.
-     *
-     * @param filename The name of the output file where the assembly code will be saved.
-     * @throws runtime_error If the output file cannot be opened for writing.
+     * @param filename - the name of the file where the assembly code will be written
      */
-    void compile(const string& filename) const;
+    void compile(const std::string& filename) const;
 
 private:
-    const vector<ASTNode>& ast; // Reference to the vector of ASTNode objects representing the program's structure.
+    /**
+     * Generates the .data section of the assembly file, including static data like output format.
+     *
+     * @param outFile - output file stream for writing the .data section
+     */
+    void generateDataSection(std::ofstream& outFile) const;
+
+    /**
+     * Generates the .bss section of the assembly file to reserve memory space for program variables.
+     *
+     * @param outFile - output file stream for writing the .bss section
+     */
+    void generateBssSection(std::ofstream& outFile) const;
+
+    /**
+     * Generates the .text section of the assembly file, containing the main program instructions.
+     *
+     * @param outFile - output file stream for writing the .text section
+     */
+    void generateTextSection(std::ofstream& outFile) const;
+
+    /**
+     * Generates assembly code for assignment operations.
+     * Supports binary operations (e.g., addition, subtraction) and direct assignments.
+     *
+     * @param outFile - output file stream for assignment instructions
+     * @param node - AST node representing an assignment operation
+     */
+    void generateAssignment(std::ofstream& outFile, const std::unique_ptr<ASTNode>& node) const;
+
+    /**
+     * Generates assembly code for print operations, displaying variable values using printf.
+     *
+     * @param outFile - output file stream for print instructions
+     * @param node - AST node representing a print operation
+     */
+    void generatePrint(std::ofstream& outFile, const std::unique_ptr<ASTNode>& node) const;
+
+    /**
+     * Generates assembly code for program exit, using a system call to terminate execution.
+     *
+     * @param outFile - output file stream for exit instructions
+     */
+    void generateExit(std::ofstream& outFile) const;
+
+    /**
+     * Compiles and runs the generated assembly code using NASM and GCC.
+     * Handles errors in assembly, linking, or execution.
+     */
+    void compileAndRun() const;
+
+    const std::vector<std::unique_ptr<ASTNode>>& ast;  // Reference to the AST nodes to be compiled
 };
 
 #endif // COMPILER_H

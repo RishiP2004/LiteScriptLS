@@ -1,68 +1,87 @@
 #include "Interpreter.h"
 #include <iostream>
+#include <stdexcept>
+#include <memory>
 
-using namespace std;
-
-/**
- * Interpreter class responsible for executing the commands represented by an Abstract Syntax Tree (AST).
- * It evaluates expressions and manages variable assignments based on the parsed source code.
- */
-Interpreter::Interpreter(const vector<ASTNode>& nodes) : ast(nodes) {}
+// Constructor initializes the interpreter with a reference to AST nodes
+Interpreter::Interpreter(const std::vector<std::unique_ptr<ASTNode>>& nodes) : ast(nodes) {}
 
 /**
- * Executes the commands represented by the AST.
- * This function processes each AST node, performing assignments, calculations, and print operations.
- *
- * It maintains a mapping of variable names to their corresponding integer values.
- * The operations supported include:
- * - Assignment of constant values to variables
- * - Addition and subtraction of variables
- * - Printing the value of variables
- *
- * @throws runtime_error if an attempt is made to access an undefined variable during execution.
+ * Executes the AST by processing each node sequentially.
+ * Calls executeNode on each node in the AST to perform actions.
  */
 void Interpreter::execute() {
-    std::unordered_map<std::string, int> variables; //Unordered map to store variable -> value mapping
-
     for (const auto& node : ast) {
-        if (node.type == ASSIGN) {
-            // Direct assignment to a variable
-            variables[node.var] = node.value; // Assign the provided value
-        } else if (node.type == ADD || node.type == SUBTRACT) {
-            // Initialize result based on the first operand
-            int result = 0;
-            bool firstOperand = true;
+        executeNode(*node);  // Execute each AST node
+    }
+}
 
-            for (const auto& operand : node.operands) {
-                // Check if operand is defined in variables map
-                if (variables.find(operand) != variables.end()) {
-                    int operandValue = variables[operand]; // Get the value of the variable
-
-                    // Initialize result with the first operand's value
-                    if (firstOperand) {
-                        result = operandValue; // Use the first operand as the starting point
-                        firstOperand = false; // Set flag to false for subsequent operands
-                    } else {
-                        // Depending on the operation type, add or subtract
-                        if (node.type == ADD) {
-                            result += operandValue; // Perform addition
-                        } else if (node.type == SUBTRACT) {
-                            result -= operandValue; // Perform subtraction
-                        }
-                    }
-                } else {
-                    throw std::runtime_error("Undefined variable: " + operand);
-                }
-            }
-            // Store the result back into the variable associated with the node
-            variables[node.var] = result;
-        } else if (node.type == PRINT) {
-            // Check if variable is defined before printing
-            if (variables.find(node.var) != variables.end()) {
-                cout << "Result: " << variables[node.var] << std::endl; // Print the value of the variable
-            } else {
-                throw std::runtime_error("Undefined variable: " + node.var);
-            }
+/**
+ * Executes a single AST node based on its type (e.g., assignment, print).
+ *
+ * @param node - AST node to be executed
+ */
+void Interpreter::executeNode(const ASTNode& node) {
+    if (node.type == ASSIGN) {
+        // For assignment nodes, evaluate the right-hand expression and store the result
+        if (node.children.size() == 1) {
+            variables[node.value] = evaluateExpression(*node.children[0]);
         }
+    } else if (node.type == PRINT) {
+        performPrint(node);  // Handle print operation
+    }
+}
+
+/**
+ * Evaluates an expression node and returns its integer result.
+ * Supports identifiers, numeric literals, and binary operations.
+ *
+ * @param node - AST node representing an expression
+ * @return - integer result of the expression
+ */
+int Interpreter::evaluateExpression(const ASTNode& node) {
+    if (node.type == IDENTIFIER) {
+        // Check if the identifier has been defined
+        if (variables.find(node.value) == variables.end()) {
+            throw std::runtime_error("Undefined variable: " + node.value);
+        }
+        return variables[node.value];  // Return the stored value of the identifier
+    }
+
+    if (node.type == NUMBER) {
+        // Convert the numeric string to an integer
+        return std::stoi(node.value);
+    }
+
+    if (node.type == BINARY_OP) {
+        // For binary operations, evaluate both the left and right expressions
+        const auto* binOpNode = dynamic_cast<const BinaryOpNode*>(&node);
+        const int leftValue = evaluateExpression(*binOpNode->children[0]);
+        const int rightValue = evaluateExpression(*binOpNode->children[1]);
+
+        // Perform the operation based on the operator type
+        if (binOpNode->op == '+') {
+            return leftValue + rightValue;
+        }
+        if (binOpNode->op == '-') {
+            return leftValue - rightValue;
+        }
+    }
+    // If the expression node type is unrecognized, throw an error
+    throw std::runtime_error("Invalid expression node type.");
+}
+
+/**
+ * Performs the print operation for PRINT nodes by outputting the variable value.
+ *
+ * @param node - AST node representing a print operation
+ */
+void Interpreter::performPrint(const ASTNode& node) {
+    if (variables.find(node.value) != variables.end()) {
+        // Output the stored value of the variable
+        std::cout << "Result: " << variables[node.value] << std::endl;
+    } else {
+        // Throw an error if the variable is not defined
+        throw std::runtime_error("Undefined variable: " + node.value);
     }
 }

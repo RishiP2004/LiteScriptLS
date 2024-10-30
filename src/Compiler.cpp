@@ -1,107 +1,164 @@
 #include "Compiler.h"
+#include "AST.h"
 #include <fstream>
 #include <stdexcept>
+#include <iostream>
+#include <memory>
+#include <cctype>
 
-using namespace std;
-/**
- * Compiler class is responsible for translating an Abstract Syntax Tree (AST) into assembly code.
- * It generates assembly instructions based on LiteScript language syntax and handles expressions,
- * variable assignments, and output operations.
- */
-Compiler::Compiler(const vector<ASTNode>& nodes) : ast(nodes) {}
+// Constructor initializes the compiler with a vector of AST nodes
+Compiler::Compiler(const std::vector<std::unique_ptr<ASTNode>>& nodes) : ast(nodes) {}
 
 /**
- * Compiles the AST into assembly code for the LiteScript language.
+ * Compiles the AST into assembly code and saves it to a file.
  *
- * This function organizes the generated assembly code into three sections:
- * - Data Section: Stores initialized data such as format strings.
- * - BSS Section: Allocates memory for variables without initialization.
- * - Text Section: Contains the executable code for the program, including variable operations and system calls.
- *
- * @param filename The name of the output file where the assembly code will be saved.
- * @throws runtime_error If the output file cannot be opened for writing.
+ * Generates .data, .bss, and .text sections and then runs the generated code.
+ * @param filename - name of the file to write assembly code
  */
-void Compiler::compile(const string& filename) const {
-    // Open the output file for writing the assembly code
-    ofstream outFile(filename);
+void Compiler::compile(const std::string& filename) const {
+    std::ofstream outFile(filename);
 
-    // Check if the file was opened successfully
     if (!outFile.is_open()) {
-        throw runtime_error("Could not open file for writing: " + filename);
+        throw std::runtime_error("Could not open file for writing: " + filename);
     }
-    // -------------------------
-    // Data Section
-    // -------------------------
-    // Define the data section for initialized data
-    outFile << "section .data\n"; // Changed .section to section
-    // Define a format string for output
-    outFile << "output_format db \"Result: %d\", 0\n"; // Adjusted format for NASM
+    generateDataSection(outFile);   // Generate .data section for static data
+    generateBssSection(outFile);    // Generate .bss section for variable storage
+    generateTextSection(outFile);   // Generate .text section for main instructions
+    compileAndRun();                   // Assemble, link, and execute the program
+}
 
-    // -------------------------
-    // BSS Section
-    // -------------------------
-    // Define the BSS section for uninitialized data (variable storage)
-    outFile << "section .bss\n"; // Changed .section to section
+/**
+ * Generates the .data section, including static data like the output format for printf.
+ *
+ * @param outFile - output file stream to write the .data section
+ */
+void Compiler::generateDataSection(std::ofstream& outFile) const {
+    outFile << "section .data\n";
+    outFile << "output_format db \"Result: %d\", 0\n";  // Defines format string for printing results
+}
 
+/**
+ * Generates the .bss section, reserving memory for variables used in the program.
+ *
+ * @param outFile - output file stream to write the .bss section
+ */
+void Compiler::generateBssSection(std::ofstream& outFile) const {
+    outFile << "section .bss\n";
+
+    // Reserve space for each variable involved in assignment
     for (const auto& node : ast) {
-        // Allocate space for variables that are assigned or used in arithmetic operations
-        if (node.type == ASSIGN || node.type == ADD || node.type == SUBTRACT) {
-            outFile << node.var << " resd 1\n"; // Reserve 4 bytes for each variable (1 DWORD)
+        if (node->type == ASSIGN) {
+            outFile << node->value << " resd 1\n";  // Reserve 4 bytes per variable
         }
     }
+}
 
-   // -------------------------
-    // Text Section
-    // -------------------------
-    // Define the text section for executable code
-    outFile << "section .text\n"; // Changed .section to section
-    outFile << "extern printf\n"; // Declare printf as an external symbol
-    outFile << "global _start\n"; // Mark _start as a global symbol
-    outFile << "_start:\n"; // Entry point of the program
+/**
+ * Generates the .text section with main program instructions.
+ *
+ * @param outFile - output file stream for the .text section
+ */
+void Compiler::generateTextSection(std::ofstream& outFile) const {
+    outFile << "section .text\n";
+    outFile << "extern printf\n";
+    outFile << "global _start\n";
+    outFile << "_start:\n";
 
-    // Process each AST node and generate corresponding assembly instructions
+    // Generate code for each node in the AST
     for (const auto& node : ast) {
-        if (node.type == ASSIGN) {
-            // Generate code for variable assignment
-            outFile << "    mov dword [" << node.var << "], " << node.value << "\n"; // Move constant value into the variable
+        if (node->type == ASSIGN) {
+            generateAssignment(outFile, node);
+        } else if (node->type == PRINT) {
+            generatePrint(outFile, node);
         }
-        else if (node.type == ADD || node.type == SUBTRACT) {
-            // Initialize the accumulator register (eax) with the first operand’s value
-            outFile << "    mov eax, [" << node.operands[0] << "]\n"; // Adjusted to load from memory
+    }
+    generateExit(outFile);  // Append code for program exit
+}
 
-            // Perform addition or subtraction for the remaining operands
-            for (size_t i = 1; i < node.operands.size(); ++i) {
-                if (node.type == ADD) {
-                    outFile << "    add eax, [" << node.operands[i] << "]\n"; // Add the operand to the accumulator
-                } else if (node.type == SUBTRACT) {
-                    outFile << "    sub eax, [" << node.operands[i] << "]\n"; // Subtract the operand from the accumulator
-                }
+/**
+ * Generates assembly code for assignment operations.
+ * Supports binary operations and direct assignments of literals/identifiers.
+ *
+ * @param outFile - output file stream for assembly code
+ * @param node - AST node representing an assignment
+ */
+void Compiler::generateAssignment(std::ofstream& outFile, const std::unique_ptr<ASTNode>& node) const {
+    if (node->children[0]->type == BINARY_OP) {
+        const auto* binOpNode = dynamic_cast<const BinaryOpNode*>(node->children[0].get());
+
+        if (!binOpNode || binOpNode->children.size() < 2) {
+            std::cerr << "Error: Invalid BinaryOpNode in assignment.\n";
+            return;
+        }
+        // Generate binary operation code
+        outFile << "    mov eax, dword [" << binOpNode->children[0]->value << "]\n";
+
+        for (size_t i = 1; i < binOpNode->children.size(); ++i) {
+            const auto& rightOperand = binOpNode->children[i]->value;
+
+            if (binOpNode->op == '+') {
+                outFile << "    add eax, dword [" << rightOperand << "]\n";
+            } else if (binOpNode->op == '-') {
+                outFile << "    sub eax, dword [" << rightOperand << "]\n";
             }
-            // Store the accumulated result in the variable
-            outFile << "    mov dword [" << node.var << "], eax\n"; // Store result back to the variable
         }
-        else if (node.type == PRINT) {
-            // Prepare to print the value of a variable
-            outFile << "    mov eax, [" << node.var << "]\n"; // Load the variable value into eax
-            outFile << "    push eax\n"; // Push the value onto the stack for printf
-            outFile << "    push output_format\n"; // Push the format string onto the stack
-            outFile << "    call printf\n"; // Call the printf function
-            outFile << "    add esp, 8\n"; // Clean up the stack after the call
+        outFile << "    mov dword [" << node->value << "], eax\n";  // Store result
+    } else {
+        // Handle assignment of literals or identifiers
+        const std::string& childValue = node->children[0]->value;
+
+        if (std::isdigit(childValue[0])) {
+            outFile << "    mov eax, " << childValue << "\n";
+        } else {
+            outFile << "    mov eax, dword [" << childValue << "]\n";
         }
+        outFile << "    mov dword [" << node->value << "], eax\n";
     }
+}
 
-    // -------------------------
-    // Exit Program
-    // -------------------------
-    // Generate code to exit the program
-    outFile << "    mov eax, 1\n"; // syscall number for exit
-    outFile << "    xor ebx, ebx\n"; // exit code 0
-    outFile << "    int 0x80\n"; // make the syscall
+/**
+ * Generates assembly code for print operations in the AST, using printf.
+ *
+ * @param outFile - output file stream for assembly code
+ * @param node - AST node representing a print operation
+ */
+void Compiler::generatePrint(std::ofstream& outFile, const std::unique_ptr<ASTNode>& node) const {
+    if (node->value.empty()) {
+        std::cerr << "Error: Empty value in print statement.\n";
+        return;
+    }
+    outFile << "    mov eax, dword [" << node->value << "]\n";
+    outFile << "    push eax\n";
+    outFile << "    push output_format\n";
+    outFile << "    call printf\n";
+    outFile << "    add esp, 8\n";  // Clean up the stack after printf
+}
 
-    // Close the output file
-    outFile.close();
-    // Run the assembly file
-    system("nasm -f win32 output.asm -o ls.o");
-    system("gcc ls.o -o LiteScript.exe");
-    system("LiteScript.exe");
+/**
+ * Generates assembly code for program exit, terminating execution with exit code 0.
+ *
+ * @param outFile - output file stream for assembly code
+ */
+void Compiler::generateExit(std::ofstream& outFile) const {
+    outFile << "    mov eax, 1\n";   // System call for exit
+    outFile << "    xor ebx, ebx\n"; // Exit code 0
+    outFile << "    int 0x80\n";     // Interrupt to terminate the program
+}
+
+/**
+ * Compiles the generated assembly code with NASM and GCC, then runs the executable.
+ * Handles errors during assembly, linking, or execution.
+ */
+void Compiler::compileAndRun() const {
+    if (system("nasm -f win32 output.asm -o ls.o") != 0) {
+        std::cerr << "Error: NASM compilation failed.\n";
+        return;
+    }
+    if (system("gcc ls.o -o LiteScript.exe") != 0) {
+        std::cerr << "Error: Linking failed.\n";
+        return;
+    }
+    if (system("LiteScript.exe") != 0) {
+        std::cerr << "Error: Execution failed.\n";
+    }
 }

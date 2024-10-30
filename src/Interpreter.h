@@ -3,40 +3,52 @@
 
 #include <vector>
 #include <unordered_map>
-#include "ASTNode.h"
-
-using namespace std;
+#include "AST.h"
+#include <memory>
 
 /**
- * Interpreter class that evaluates and executes the commands represented by an Abstract Syntax Tree (AST).
- * It manages variable assignments and operations such as addition, subtraction, and printing of values.
+ * Interpreter class is responsible for executing an Abstract Syntax Tree (AST).
+ * It processes each node in the AST, handling assignments, print operations, and expressions.
  */
 class Interpreter {
 public:
     /**
-     * Constructs an Interpreter instance with a given AST.
+     * Initializes the interpreter with a reference to a vector of AST nodes.
      *
-     * @param nodes A vector of ASTNode objects representing the parsed source code commands.
+     * @param nodes - the AST nodes representing the program structure to be executed
      */
-    explicit Interpreter(const vector<ASTNode>& nodes);
+    explicit Interpreter(const std::vector<std::unique_ptr<ASTNode>>& nodes);
 
     /**
-     * Executes the commands represented by the AST.
-     * This function processes each AST node, performing assignments, calculations, and print operations.
-     *
-     * It maintains a mapping of variable names to their corresponding integer values.
-     * The operations supported include:
-     * - Assignment of constant values to variables
-     * - Addition and subtraction of variables
-     * - Printing the value of variables
-     *
-     * @throws runtime_error if an attempt is made to access an undefined variable during execution.
+     * Executes the AST by processing each node in sequence.
      */
     void execute();
 
 private:
-    unordered_map<string, int> variables;  // Map that stores variable names and their corresponding integer values.
-    const vector<ASTNode>& ast;            // Reference to the vector of ASTNode objects representing the program's structure.
+    std::unordered_map<std::string, int> variables;  // Stores variable values for assignment operations
+    const std::vector<std::unique_ptr<ASTNode>>& ast;  // Reference to AST nodes to be interpreted
+
+    /**
+     * Executes a single AST node based on its type (e.g., assignment, print).
+     *
+     * @param node - AST node to be executed
+     */
+    void executeNode(const ASTNode& node);
+
+    /**
+     * Evaluates an expression node and returns its integer result.
+     *
+     * @param node - AST node representing an expression
+     * @return - integer result of the expression
+     */
+    int evaluateExpression(const ASTNode& node);
+
+    /**
+     * Performs a print operation for PRINT nodes, outputting the value of a variable.
+     *
+     * @param node - AST node representing a print operation
+     */
+    void performPrint(const ASTNode& node);
 };
 
 #endif // INTERPRETER_H

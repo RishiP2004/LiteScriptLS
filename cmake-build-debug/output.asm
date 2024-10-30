@@ -8,12 +8,14 @@ section .text
 extern printf
 global _start
 _start:
-    mov dword [a], 5
-    mov dword [b], 10
-    mov eax, [a]
-    add eax, [b]
+    mov eax, 5
+    mov dword [a], eax
+    mov eax, 10
+    mov dword [b], eax
+    mov eax, dword [a]
+    add eax, dword [b]
     mov dword [c], eax
-    mov eax, [c]
+    mov eax, dword [c]
     push eax
     push output_format
     call printf

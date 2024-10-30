@@ -1,13 +1,21 @@
 cmake_minimum_required(VERSION 3.10)
 project(LiteScript)
 
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
 
 set(SOURCES
         src/main.cpp
         src/LiteScript.cpp
+        src/LiteScript.h
         src/Compiler.cpp
+        src/Compiler.h
         src/Interpreter.cpp
+        src/Interpreter.h
+        src/Lexer.cpp
+        src/Lexer.h
+        src/Parser.cpp
+        src/Parser.h
+        src/AST.h
 )
 
 add_executable(LiteScript ${SOURCES})
